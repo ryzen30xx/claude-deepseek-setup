@@ -8,13 +8,13 @@ This setup uses the [MG-Cafe](https://github.com/MG-Cafe/claudecode-deepseek-sta
 
 To automatically install Claude Code, set up the DeepSeek configuration, and copy the custom skills on a new Mac, simply paste this command into your terminal:
 
-Since this is a **Private** repository, you can use the GitHub CLI (`gh`) to securely fetch and run the installer without manually cloning the repo:
+To automatically install Claude Code, set up the DeepSeek configuration, and pull your custom skills on a new Mac, simply paste this command into your terminal:
 
 ```bash
-gh api -H "Accept: application/vnd.github.v3.raw" repos/ryzen30xx/claude-deepseek-setup/contents/install.sh | bash
+curl -sL https://raw.githubusercontent.com/ryzen30xx/claude-deepseek-setup/main/install.sh | bash
 ```
 
-*(Note: This requires you to be logged in via `gh auth login` on the new Mac)*
+*(Note: If the repository is Private, `curl` will require authentication. You may need to make the repo Public, or pass a token via `-H "Authorization: token YOUR_PAT"`)*
 
 During installation, the script will prompt you to enter your **DeepSeek API Key** and securely save it.
 
