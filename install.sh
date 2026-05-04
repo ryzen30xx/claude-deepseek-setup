@@ -37,17 +37,29 @@ else
     echo "✅ API Key saved securely."
 fi
 
-# 4. Copy Skills to Global Directory
+# 4. Pull Skills from External GitHub Repository
 echo ""
-echo "Installing custom Claude Code Skills (Sub-agents)..."
+echo "Installing custom Claude Code Skills from GitHub..."
 mkdir -p ~/.claude/skills
-SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 
-if [ -d "$SCRIPT_DIR/skills" ]; then
-    cp -R "$SCRIPT_DIR/skills/"* ~/.claude/skills/
+SKILLS_REPO_URL="https://github.com/ryzen30xx/Skills.git"
+TEMP_SKILLS_DIR="/tmp/claude-skills-clone"
+
+echo "Cloning skills from $SKILLS_REPO_URL..."
+rm -rf "$TEMP_SKILLS_DIR"
+# Use 'gh' to clone if authenticated, else fallback to standard git
+if command -v gh &> /dev/null && gh auth status &> /dev/null; then
+    gh repo clone "$SKILLS_REPO_URL" "$TEMP_SKILLS_DIR"
+else
+    git clone "$SKILLS_REPO_URL" "$TEMP_SKILLS_DIR"
+fi
+
+if [ -d "$TEMP_SKILLS_DIR" ]; then
+    cp -R "$TEMP_SKILLS_DIR/"* ~/.claude/skills/
+    rm -rf "$TEMP_SKILLS_DIR"
     echo "✅ Custom skills installed successfully to ~/.claude/skills/"
 else
-    echo "⚠️ Warning: 'skills' directory not found in the repository. Skipping skill installation."
+    echo "⚠️ Error: Failed to clone skills repository. Skipping skill installation."
 fi
 
 # 5. Add Shell Alias (claude-ds)
