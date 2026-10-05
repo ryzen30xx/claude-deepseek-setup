@@ -69,6 +69,7 @@ In `~/.zshrc`:
 
 - **Robust Key Parsing**: Handles formatting variations in `~/.config/mg-deepseek/key.env` (supports `export`, spaces around `=`, single or double quotes) without breaking shell syntax.
 - **Isolated Settings**: Generates temporary, isolated DeepSeek settings in `~/.config/mg-deepseek/claude-deepseek-settings.json` with strict 600 permissions.
+- **1M Native Context Window**: Hardcodes `CLAUDE_CODE_MAX_CONTEXT_TOKENS: "1000000"` to fully leverage DeepSeek's 1M context window and automatically trigger auto-compact appropriately.
 - **Auto-Reload**: Automatically sources `~/.zshrc` so you can type `claude-ds` right after install.
 
 ---

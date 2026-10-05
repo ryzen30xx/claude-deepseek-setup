@@ -34,10 +34,10 @@ claude-ds() {
     local selected_model="deepseek-v4-pro"
 
     # Check if the first argument is "flash" or "pro" or uses flags
-    if [ "$1" = "flash" ] || [ "$1" = "--flash" ]; then
-        selected_model="deepseek-v4-flash"
+    if [ "$1" = "flash" ] || [ "$1" = "--flash" ] || [ "$1" = "deepseek-flash" ]; then
+        selected_model="deepseek-flash"
         shift
-    elif [ "$1" = "pro" ] || [ "$1" = "--pro" ]; then
+    elif [ "$1" = "pro" ] || [ "$1" = "--pro" ] || [ "$1" = "deepseek-v4-pro" ]; then
         selected_model="deepseek-v4-pro"
         shift
     fi
@@ -54,7 +54,7 @@ claude-ds() {
     "ANTHROPIC_BASE_URL": "https://api.deepseek.com/anthropic",
     "ANTHROPIC_AUTH_TOKEN": "$DEEPSEEK_API_KEY",
     "ANTHROPIC_API_KEY": "$DEEPSEEK_API_KEY",
-    "CLAUDE_CODE_MAX_CONTEXT_TOKENS": "64000",
+    "CLAUDE_CODE_MAX_CONTEXT_TOKENS": "1000000",
     "CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT": "1"
   }
 }
