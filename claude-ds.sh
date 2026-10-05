@@ -153,7 +153,8 @@ claude-ds() {
         echo "     7) Flash - 500K Context (Dự án lớn, tốc độ cao)"
         echo "     8) Flash - 1M   Context (Maximum Context, tốc độ cao)"
         echo "========================================================================"
-        read -p "Chọn profile [1-8] (mặc định 1): " profile_choice
+        printf "Chọn profile [1-8] (mặc định 1): "
+        read -r profile_choice
         case "$profile_choice" in
             1|"") selected_model="deepseek-v4-pro"; selected_context="128k" ;;
             2)    selected_model="deepseek-v4-pro"; selected_context="256k" ;;

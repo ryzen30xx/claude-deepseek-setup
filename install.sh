@@ -36,7 +36,8 @@ if [ -n "$existing_key" ] && [ "$existing_key" != "sk-your-key-here" ]; then
     echo "export DEEPSEEK_API_KEY=\"$existing_key\"" > "$KEY_FILE"
     chmod 600 "$KEY_FILE"
 else
-    read -p "Enter your DeepSeek API Key (sk-...): " api_key
+    printf "Enter your DeepSeek API Key (sk-...): "
+    read -r api_key
     api_key=$(echo "$api_key" | tr -d "'\" ")
     if [ -z "$api_key" ]; then
         echo "Error: API Key cannot be empty."
@@ -128,6 +129,21 @@ data["theme"] = "dark"
 
 with open(settings_path, "w") as f:
     json.dump(data, f, indent=2)
+
+# Auto-approve workspace trust for home directory in ~/.claude.json
+claude_json_path = os.path.expanduser("~/.claude.json")
+if os.path.exists(claude_json_path):
+    try:
+        c = json.load(open(claude_json_path))
+        home = os.path.expanduser("~")
+        if "projects" not in c:
+            c["projects"] = {}
+        if home not in c["projects"]:
+            c["projects"][home] = {}
+        c["projects"][home]["hasTrustDialogAccepted"] = True
+        json.dump(c, open(claude_json_path, "w"), indent=2)
+    except Exception:
+        pass
 PY_EOF
 echo "✅ Configured model picker in ~/.claude/settings.json"
 
@@ -292,7 +308,8 @@ claude-ds() {
         echo "     7) Flash - 500K Context (Dự án lớn, tốc độ cao)"
         echo "     8) Flash - 1M   Context (Maximum Context, tốc độ cao)"
         echo "========================================================================"
-        read -p "Chọn profile [1-8] (mặc định 1): " profile_choice
+        printf "Chọn profile [1-8] (mặc định 1): "
+        read -r profile_choice
         case "$profile_choice" in
             1|"") selected_model="deepseek-v4-pro"; selected_context="128k" ;;
             2)    selected_model="deepseek-v4-pro"; selected_context="256k" ;;

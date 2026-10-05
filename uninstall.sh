@@ -42,7 +42,8 @@ echo "=================================================="
 echo ""
 
 if [ "$FORCE" = false ]; then
-    read -p "Are you sure you want to uninstall Claude Code DeepSeek setup? [y/N]: " confirm
+    printf "Are you sure you want to uninstall Claude Code DeepSeek setup? [y/N]: "
+    read -r confirm
     case "$confirm" in
         [yY][eE][sS]|[yY])
             ;;
