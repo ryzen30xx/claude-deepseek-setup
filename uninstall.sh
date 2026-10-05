@@ -73,7 +73,7 @@ content = open(path).read()
 content = re.sub(r'\n*# >>> claude-code-deepseek >>>.*?# <<< claude-code-deepseek <<<\n*', '\n', content, flags=re.DOTALL)
 
 # Remove legacy inline function if exists
-content = re.sub(r'\n*# Run Claude Code with DeepSeek API \(MG-Cafe stack\)\nfunction claude-ds\(\) \{.*?\n\}\n*', '\n', content, flags=re.DOTALL)
+content = re.sub(r'\n*# (?:Run )?Claude Code with DeepSeek API.*?\nfunction claude-ds\(\) \{.*?\n\}\n*', '\n', content, flags=re.DOTALL)
 content = re.sub(r'\n*function claude-ds\(\) \{.*?\n\}\n*', '\n', content, flags=re.DOTALL)
 
 open(path, 'w').write(content)

@@ -2,7 +2,7 @@
 
 This repository contains an auto-install and management suite to configure [Claude Code](https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/overview) to securely use the **DeepSeek API** with custom context profiles, subagents, and skills.
 
-This setup uses the [MG-Cafe](https://github.com/MG-Cafe/claudecode-deepseek-stack) approach to route requests through DeepSeek while keeping your shell configuration clean, modular, and isolated.
+Hệ thống này cung cấp kiến trúc hoàn chỉnh để định tuyến toàn bộ yêu cầu qua DeepSeek với khả năng quản lý context profile, loại bỏ bloatware, bảo vệ token ngân sách và cô lập shell tuyệt đối.
 
 ---
 
@@ -115,7 +115,7 @@ Không giống như các bộ cài đặt thông thường chèn hàng trăm dò
 Trong `~/.zshrc`:
 ```zsh
 # >>> claude-code-deepseek >>>
-# Claude Code with DeepSeek API (MG-Cafe stack)
+# Claude Code with DeepSeek API
 [ -f "$HOME/.config/mg-deepseek/claude-ds.sh" ] && source "$HOME/.config/mg-deepseek/claude-ds.sh"
 # <<< claude-code-deepseek <<<
 ```

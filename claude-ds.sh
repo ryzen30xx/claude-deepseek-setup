@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # ==============================================================================
-# Claude Code + DeepSeek API Integration (MG-Cafe stack)
+# Claude Code + DeepSeek API Integration
 # Context Profiles: 128K, 256K, 500K, 1M
 # Model Profiles: deepseek-v4-pro (Pro), deepseek-flash (Flash)
 # ==============================================================================
@@ -49,7 +49,7 @@ claude-ds() {
     # 3. Handle subcommands: help, config, profile / menu
     if [ "$1" = "help" ] || [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
         echo "========================================================================"
-        echo "⚡ Claude Code with DeepSeek API Launcher (MG-Cafe stack)"
+        echo "⚡ Claude Code with DeepSeek API Launcher"
         echo "========================================================================"
         echo "Usage:"
         echo "  claude-ds [model] [context] [claude-options...]"
@@ -320,7 +320,7 @@ EOF
 
     # 8. Print informative startup banner
     echo "========================================================================"
-    echo "⚡ Claude Code + DeepSeek API (MG-Cafe stack)"
+    echo "⚡ Claude Code + DeepSeek API"
     echo "• Model:          $selected_model"
     echo "• Context Limit:  $max_tokens tokens [$context_label]"
     echo "• Endpoint:       https://api.deepseek.com/anthropic"
