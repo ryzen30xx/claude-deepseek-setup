@@ -76,7 +76,49 @@ else
     echo "⚠️ Notice: Skills repository unavailable or already present. Continuing..."
 fi
 
-# 5. Deploy claude-ds.sh script
+# 5. Configure Claude Code global settings (~/.claude/settings.json)
+echo ""
+echo "Configuring Claude Code model picker..."
+mkdir -p "$HOME/.claude"
+python3 - << 'PY_EOF' 2>/dev/null || true
+import json, os
+
+settings_path = os.path.expanduser("~/.claude/settings.json")
+data = {}
+if os.path.exists(settings_path):
+    try:
+        data = json.load(open(settings_path))
+    except Exception:
+        data = {}
+
+data["modelPicker"] = {
+    "options": [
+        {
+            "model": "deepseek-v4-pro",
+            "label": "DeepSeek V4 Pro",
+            "description": "DeepSeek-V4-Pro-0813 · 1M Context · Reasoning & Coding",
+            "behavesAs": "claude-sonnet-5"
+        },
+        {
+            "model": "deepseek-flash",
+            "label": "DeepSeek Flash",
+            "description": "DeepSeek-V4.1-Flash · 1M Context · Fast & Efficient",
+            "behavesAs": "claude-haiku-4-5-20251001"
+        }
+    ],
+    "replaceBuiltInOptions": True
+}
+data["modelOverrides"] = {
+    "deepseek-v4-pro": "claude-sonnet-5",
+    "deepseek-flash": "claude-haiku-4-5-20251001"
+}
+
+with open(settings_path, "w") as f:
+    json.dump(data, f, indent=2)
+PY_EOF
+echo "✅ Configured model picker in ~/.claude/settings.json"
+
+# 6. Deploy claude-ds.sh script
 echo ""
 echo "Installing claude-ds runner script..."
 SCRIPT_TARGET="$CONFIG_DIR/claude-ds.sh"
@@ -146,15 +188,21 @@ claude-ds() {
       {
         "model": "deepseek-v4-pro",
         "label": "DeepSeek V4 Pro",
-        "description": "DeepSeek-V4-Pro-0813 · 1M Context · Reasoning & Coding"
+        "description": "DeepSeek-V4-Pro-0813 · 1M Context · Reasoning & Coding",
+        "behavesAs": "claude-sonnet-5"
       },
       {
         "model": "deepseek-flash",
         "label": "DeepSeek Flash",
-        "description": "DeepSeek-V4.1-Flash · 1M Context · Fast & Efficient"
+        "description": "DeepSeek-V4.1-Flash · 1M Context · Fast & Efficient",
+        "behavesAs": "claude-haiku-4-5-20251001"
       }
     ],
     "replaceBuiltInOptions": true
+  },
+  "modelOverrides": {
+    "deepseek-v4-pro": "claude-sonnet-5",
+    "deepseek-flash": "claude-haiku-4-5-20251001"
   }
 }
 EOF

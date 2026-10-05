@@ -62,15 +62,21 @@ claude-ds() {
       {
         "model": "deepseek-v4-pro",
         "label": "DeepSeek V4 Pro",
-        "description": "DeepSeek-V4-Pro-0813 · 1M Context · Reasoning & Coding"
+        "description": "DeepSeek-V4-Pro-0813 · 1M Context · Reasoning & Coding",
+        "behavesAs": "claude-sonnet-5"
       },
       {
         "model": "deepseek-flash",
         "label": "DeepSeek Flash",
-        "description": "DeepSeek-V4.1-Flash · 1M Context · Fast & Efficient"
+        "description": "DeepSeek-V4.1-Flash · 1M Context · Fast & Efficient",
+        "behavesAs": "claude-haiku-4-5-20251001"
       }
     ],
     "replaceBuiltInOptions": true
+  },
+  "modelOverrides": {
+    "deepseek-v4-pro": "claude-sonnet-5",
+    "deepseek-flash": "claude-haiku-4-5-20251001"
   }
 }
 EOF

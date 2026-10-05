@@ -123,7 +123,26 @@ else
     echo "   (Use --purge-skills if you wish to remove default skills)"
 fi
 
-# 3. Remove DeepSeek Configuration Directory
+# 3. Clean Model Picker from ~/.claude/settings.json
+echo ""
+echo "Cleaning modelPicker from Claude Code settings..."
+python3 - << 'PY_EOF' 2>/dev/null || true
+import json, os
+p = os.path.expanduser("~/.claude/settings.json")
+if os.path.exists(p):
+    try:
+        d = json.load(open(p))
+        d.pop("modelPicker", None)
+        d.pop("modelOverrides", None)
+        if d.get("model") in ["deepseek-v4-pro", "deepseek-flash"]:
+            d.pop("model", None)
+        json.dump(d, open(p, "w"), indent=2)
+    except Exception:
+        pass
+PY_EOF
+echo "✅ Reverted ~/.claude/settings.json"
+
+# 4. Remove DeepSeek Configuration Directory
 echo ""
 echo "Removing DeepSeek configuration directory..."
 if [ -d "$CONFIG_DIR" ]; then
