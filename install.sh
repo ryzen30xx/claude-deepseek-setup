@@ -140,6 +140,21 @@ claude-ds() {
     "ANTHROPIC_API_KEY": "$DEEPSEEK_API_KEY",
     "CLAUDE_CODE_MAX_CONTEXT_TOKENS": "1000000",
     "CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT": "1"
+  },
+  "modelPicker": {
+    "options": [
+      {
+        "model": "deepseek-v4-pro",
+        "label": "DeepSeek V4 Pro",
+        "description": "DeepSeek-V4-Pro-0813 · 1M Context · Reasoning & Coding"
+      },
+      {
+        "model": "deepseek-flash",
+        "label": "DeepSeek Flash",
+        "description": "DeepSeek-V4.1-Flash · 1M Context · Fast & Efficient"
+      }
+    ],
+    "replaceBuiltInOptions": true
   }
 }
 EOF
