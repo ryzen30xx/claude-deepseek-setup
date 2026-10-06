@@ -20,10 +20,10 @@ curl -sL https://raw.githubusercontent.com/ryzen30xx/claude-deepseek-setup/main/
 
 During installation, the script will:
 1. Ensure Claude Code is installed.
-2. Prompt for your **DeepSeek API Key** (or detect and auto-standardize your existing key in `~/.config/mg-deepseek/key.env`).
+2. Prompt for your **DeepSeek API Key** (or detect and auto-standardize your existing key in `~/.config/claude-deepseek/key.env`).
 3. Initialize your default profile (`deepseek-v4-pro` with `128K` cost-saving context).
 4. Pull custom skills (Task Router, etc.) into `~/.claude/skills/`.
-5. Deploy the modular runner script to `~/.config/mg-deepseek/claude-ds.sh`.
+5. Deploy the modular runner script to `~/.config/claude-deepseek/claude-ds.sh`.
 6. Add an isolated source block in `~/.zshrc` (or `~/.bashrc`).
 7. **Automatically reload your shell (`~/.zshrc`)** so you can immediately run `claude-ds`.
 
@@ -116,7 +116,7 @@ Trong `~/.zshrc`:
 ```zsh
 # >>> claude-code-deepseek >>>
 # Claude Code with DeepSeek API
-[ -f "$HOME/.config/mg-deepseek/claude-ds.sh" ] && source "$HOME/.config/mg-deepseek/claude-ds.sh"
+[ -f "$HOME/.config/claude-deepseek/claude-ds.sh" ] && source "$HOME/.config/claude-deepseek/claude-ds.sh"
 # <<< claude-code-deepseek <<<
 ```
 
@@ -149,4 +149,4 @@ curl -sL https://raw.githubusercontent.com/ryzen30xx/claude-deepseek-setup/main/
 ---
 
 ## 🔒 Security Note
-Repository này **không** lưu bất kỳ API Key nào. Khóa API DeepSeek được lưu bảo mật tại máy của bạn trong `~/.config/mg-deepseek/key.env` với phân quyền `chmod 600`.
+Repository này **không** lưu bất kỳ API Key nào. Khóa API DeepSeek được lưu bảo mật tại máy của bạn trong `~/.config/claude-deepseek/key.env` với phân quyền `chmod 600`.

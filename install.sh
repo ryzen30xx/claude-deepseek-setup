@@ -20,7 +20,18 @@ fi
 # 2. Setup DeepSeek Configuration Directory
 echo ""
 echo "Setting up DeepSeek Configuration directory..."
-CONFIG_DIR="$HOME/.config/mg-deepseek"
+CONFIG_DIR="$HOME/.config/claude-deepseek"
+LEGACY_CONFIG_DIR="$HOME/.config/mg-deepseek"
+
+# Auto-migrate legacy configuration directory if it exists
+if [ -d "$LEGACY_CONFIG_DIR" ] && [ ! -d "$CONFIG_DIR" ]; then
+    echo "📦 Migrating configuration from $LEGACY_CONFIG_DIR to $CONFIG_DIR..."
+    mv "$LEGACY_CONFIG_DIR" "$CONFIG_DIR"
+elif [ -d "$LEGACY_CONFIG_DIR" ] && [ -d "$CONFIG_DIR" ]; then
+    cp -n "$LEGACY_CONFIG_DIR"/* "$CONFIG_DIR"/ 2>/dev/null || true
+    rm -rf "$LEGACY_CONFIG_DIR"
+fi
+
 mkdir -p "$CONFIG_DIR"
 chmod 700 "$CONFIG_DIR"
 
@@ -162,7 +173,12 @@ cat > "$SCRIPT_TARGET" << 'RUNNER_EOF'
 # ==============================================================================
 
 claude-ds() {
-    local config_dir="$HOME/.config/mg-deepseek"
+    # Auto-migrate legacy ~/.config/mg-deepseek if found
+    if [ -d "$HOME/.config/mg-deepseek" ] && [ ! -d "$HOME/.config/claude-deepseek" ]; then
+        mv "$HOME/.config/mg-deepseek" "$HOME/.config/claude-deepseek" 2>/dev/null || true
+    fi
+
+    local config_dir="$HOME/.config/claude-deepseek"
     local key_file="$config_dir/key.env"
     local profile_file="$config_dir/profile.env"
     local settings_file="$config_dir/claude-deepseek-settings.json"
@@ -178,7 +194,7 @@ claude-ds() {
     fi
 
     if [ -z "$api_key" ] || [ "$api_key" = "sk-your-key-here" ]; then
-        echo "❌ Error: Please set your actual DEEPSEEK_API_KEY in ~/.config/mg-deepseek/key.env"
+        echo "❌ Error: Please set your actual DEEPSEEK_API_KEY in ~/.config/claude-deepseek/key.env"
         return 1
     fi
 
@@ -522,7 +538,7 @@ echo "Configuring shell profiles..."
 
 CLEAN_BLOCK='# >>> claude-code-deepseek >>>
 # Claude Code with DeepSeek API
-[ -f "$HOME/.config/mg-deepseek/claude-ds.sh" ] && source "$HOME/.config/mg-deepseek/claude-ds.sh"
+[ -f "$HOME/.config/claude-deepseek/claude-ds.sh" ] && source "$HOME/.config/claude-deepseek/claude-ds.sh"
 # <<< claude-code-deepseek <<<'
 
 configure_rc_file() {
@@ -541,16 +557,15 @@ open(path, 'w').write(content)
 " 2>/dev/null || true
     fi
 
-    # Clean existing block if already present to avoid duplicates
-    if grep -q "# >>> claude-code-deepseek >>>" "$rc_file" 2>/dev/null; then
-        python3 -c "
+    # Clean existing block or legacy mg-deepseek references
+    python3 -c "
 import re
 path = '$rc_file'
 content = open(path).read()
 content = re.sub(r'\n*# >>> claude-code-deepseek >>>.*?# <<< claude-code-deepseek <<<\n*', '\n', content, flags=re.DOTALL)
+content = re.sub(r'\n*\[ -f \"\$HOME/\.config/mg-deepseek/claude-ds\.sh\" \] && source \"\$HOME/\.config/mg-deepseek/claude-ds\.sh\"\n*', '\n', content)
 open(path, 'w').write(content)
 " 2>/dev/null || true
-    fi
 
     # Append clean block
     echo "" >> "$rc_file"

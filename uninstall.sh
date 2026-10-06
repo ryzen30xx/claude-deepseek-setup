@@ -54,7 +54,8 @@ if [ "$FORCE" = false ]; then
     esac
 fi
 
-CONFIG_DIR="$HOME/.config/mg-deepseek"
+CONFIG_DIR="$HOME/.config/claude-deepseek"
+LEGACY_CONFIG_DIR="$HOME/.config/mg-deepseek"
 
 # 1. Clean Shell RC Files (~/.zshrc and ~/.bashrc)
 echo ""
@@ -71,6 +72,9 @@ content = open(path).read()
 
 # Remove isolated block
 content = re.sub(r'\n*# >>> claude-code-deepseek >>>.*?# <<< claude-code-deepseek <<<\n*', '\n', content, flags=re.DOTALL)
+
+# Remove legacy mg-deepseek lines
+content = re.sub(r'\n*\[ -f \"\$HOME/\.config/mg-deepseek/claude-ds\.sh\" \] && source \"\$HOME/\.config/mg-deepseek/claude-ds\.sh\"\n*', '\n', content)
 
 # Remove legacy inline function if exists
 content = re.sub(r'\n*# (?:Run )?Claude Code with DeepSeek API.*?\nfunction claude-ds\(\) \{.*?\n\}\n*', '\n', content, flags=re.DOTALL)
@@ -151,6 +155,10 @@ if [ -d "$CONFIG_DIR" ]; then
     echo "✅ Removed $CONFIG_DIR"
 else
     echo "ℹ️  $CONFIG_DIR does not exist."
+fi
+if [ -d "$LEGACY_CONFIG_DIR" ]; then
+    rm -rf "$LEGACY_CONFIG_DIR"
+    echo "✅ Removed legacy directory $LEGACY_CONFIG_DIR"
 fi
 
 # 4. Optional: Uninstall Claude Code CLI

@@ -7,7 +7,12 @@
 # ==============================================================================
 
 claude-ds() {
-    local config_dir="$HOME/.config/mg-deepseek"
+    # Auto-migrate legacy ~/.config/mg-deepseek if found
+    if [ -d "$HOME/.config/mg-deepseek" ] && [ ! -d "$HOME/.config/claude-deepseek" ]; then
+        mv "$HOME/.config/mg-deepseek" "$HOME/.config/claude-deepseek" 2>/dev/null || true
+    fi
+
+    local config_dir="$HOME/.config/claude-deepseek"
     local key_file="$config_dir/key.env"
     local profile_file="$config_dir/profile.env"
     local settings_file="$config_dir/claude-deepseek-settings.json"
@@ -23,7 +28,7 @@ claude-ds() {
     fi
 
     if [ -z "$api_key" ] || [ "$api_key" = "sk-your-key-here" ]; then
-        echo "❌ Error: Please set your actual DEEPSEEK_API_KEY in ~/.config/mg-deepseek/key.env"
+        echo "❌ Error: Please set your actual DEEPSEEK_API_KEY in ~/.config/claude-deepseek/key.env"
         return 1
     fi
 
