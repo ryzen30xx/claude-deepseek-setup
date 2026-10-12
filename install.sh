@@ -1,33 +1,118 @@
 #!/usr/bin/env bash
 
+# ==============================================================================
+# Claude Code + DeepSeek API Suite - Installer
+#
+# Kiến trúc quy trình:
+#   1. Chạy lệnh (Khởi động bộ cài đặt)
+#   2. Cài đặt các package cần thiết (curl, git, python3, Claude Code, ~/.local/bin PATH)
+#   3. TUI yêu cầu người dùng nhập API Key (Giao diện TUI, hướng dẫn, chọn Profile)
+#   4. API Key được viết vào configure và tạo configure (key.env, profile.env, settings)
+#   5. Add to bashrc, zshrc tùy môi trường (Cô lập cấu hình, auto-reload)
+# ==============================================================================
+
 set -e
 
-echo "=================================================="
-echo "   Claude Code DeepSeek API & Skills Installer"
-echo "=================================================="
-echo ""
+# Thiết lập màu sắc hiển thị TUI
+BOLD='\033[1m'
+CYAN='\033[0;36m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+RED='\033[0;31m'
+BLUE='\033[0;34m'
+DIM='\033[2m'
+NC='\033[0m'
 
-# 1. Install Claude Code if not installed
-[ -d "$HOME/.local/bin" ] && case ":$PATH:" in *":$HOME/.local/bin:"*) ;; *) export PATH="$HOME/.local/bin:$PATH" ;; esac
-
-if ! command -v claude &> /dev/null && [ ! -f ~/.local/bin/claude ]; then
-    echo "Installing Claude Code..."
-    curl -fsSL https://claude.ai/install.sh | bash
-    # Ensure local bin is in PATH for the rest of the script
-    export PATH="$HOME/.local/bin:$PATH"
-else
-    echo "✅ Claude Code is already installed."
+if [ -n "$NO_COLOR" ] || [ ! -t 1 ]; then
+    BOLD="" CYAN="" GREEN="" YELLOW="" RED="" BLUE="" DIM="" NC=""
 fi
 
-# 2. Setup DeepSeek Configuration Directory
+# Hàm đọc input an toàn từ /dev/tty (tương thích cả khi chạy qua pipe curl | bash)
+prompt_tty() {
+    local prompt_msg="$1"
+    local var_name="$2"
+    local input_val=""
+
+    printf "%b" "$prompt_msg"
+    if [ -r /dev/tty ]; then
+        read -r input_val < /dev/tty || true
+    elif [ -t 0 ]; then
+        read -r input_val || true
+    fi
+    eval "$var_name=\"\$input_val\""
+}
+
+# Hàm ẩn bớt ký tự API Key khi hiển thị trên màn hình
+mask_key() {
+    local k="$1"
+    local len=${#k}
+    if [ "$len" -le 10 ]; then
+        echo "********"
+    else
+        local prefix="${k:0:7}"
+        local suffix="${k: -4}"
+        echo "${prefix}****************${suffix}"
+    fi
+}
+
+echo -e "${CYAN}========================================================================${NC}"
+echo -e "${BOLD}${CYAN}   ⚡ Claude Code + DeepSeek API Suite - Installer${NC}"
+echo -e "${CYAN}========================================================================${NC}"
+echo -e "Kiến trúc: Claude Code CLI + DeepSeek V4 API (Pro & Flash) + Context Profiles"
 echo ""
-echo "Setting up DeepSeek Configuration directory..."
+
+# ------------------------------------------------------------------------------
+# 1. CÀI ĐẶT CÁC PACKAGE CẦN THIẾT
+# ------------------------------------------------------------------------------
+echo -e "${BLUE}📦 [1/4] Kiểm tra và cài đặt các package cần thiết...${NC}"
+
+# Đảm bảo ~/.local/bin có trong PATH ngay trong phiên làm việc này
+[ -d "$HOME/.local/bin" ] && case ":$PATH:" in *":$HOME/.local/bin:"*) ;; *) export PATH="$HOME/.local/bin:$PATH" ;; esac
+
+# Kiểm tra curl
+if command -v curl &>/dev/null; then
+    echo -e "  ${GREEN}✔${NC} curl: $(curl --version 2>&1 | head -n 1 | awk '{print $1, $2}')"
+else
+    echo -e "  ${RED}❌ curl chưa được cài đặt. Vui lòng cài đặt curl trước khi tiếp tục.${NC}"
+    exit 1
+fi
+
+# Kiểm tra python3
+if command -v python3 &>/dev/null; then
+    echo -e "  ${GREEN}✔${NC} python3: $(python3 --version 2>&1)"
+else
+    echo -e "  ${YELLOW}⚠️ python3 chưa cài đặt. Một số bước đồng bộ JSON có thể bị giới hạn.${NC}"
+fi
+
+# Kiểm tra git
+if command -v git &>/dev/null; then
+    echo -e "  ${GREEN}✔${NC} git: $(git --version 2>&1)"
+else
+    echo -e "  ${YELLOW}⚠️ git chưa cài đặt. Sẽ bỏ qua bước clone Skills mở rộng.${NC}"
+fi
+
+# Kiểm tra và tự động cài đặt Claude Code chính hãng
+if command -v claude &>/dev/null || [ -f "$HOME/.local/bin/claude" ]; then
+    echo -e "  ${GREEN}✔${NC} Claude Code: Đã có sẵn trên hệ thống"
+else
+    echo -e "  ${YELLOW}⚡ Chưa tìm thấy Claude Code. Đang tiến hành cài đặt tự động từ Anthropic...${NC}"
+    curl -fsSL https://claude.ai/install.sh | bash
+    [ -d "$HOME/.local/bin" ] && case ":$PATH:" in *":$HOME/.local/bin:"*) ;; *) export PATH="$HOME/.local/bin:$PATH" ;; esac
+    echo -e "  ${GREEN}✔${NC} Claude Code: Cài đặt thành công!"
+fi
+
+# ------------------------------------------------------------------------------
+# 2. TUI YÊU CẦU NGƯỜI DÙNG NHẬP API KEY & CHỌN PROFILE
+# ------------------------------------------------------------------------------
+echo ""
+echo -e "${BLUE}🔑 [2/4] Thiết lập DeepSeek API Key & Profile...${NC}"
+
 CONFIG_DIR="$HOME/.config/claude-deepseek"
 LEGACY_CONFIG_DIR="$HOME/.config/mg-deepseek"
 
-# Auto-migrate legacy configuration directory if it exists
+# Tự động di chuyển dữ liệu cấu hình cũ nếu có
 if [ -d "$LEGACY_CONFIG_DIR" ] && [ ! -d "$CONFIG_DIR" ]; then
-    echo "📦 Migrating configuration from $LEGACY_CONFIG_DIR to $CONFIG_DIR..."
+    echo -e "  ${YELLOW}📦 Đang di dời cấu hình cũ từ $LEGACY_CONFIG_DIR sang $CONFIG_DIR...${NC}"
     mv "$LEGACY_CONFIG_DIR" "$CONFIG_DIR"
 elif [ -d "$LEGACY_CONFIG_DIR" ] && [ -d "$CONFIG_DIR" ]; then
     cp -n "$LEGACY_CONFIG_DIR"/* "$CONFIG_DIR"/ 2>/dev/null || true
@@ -37,69 +122,118 @@ fi
 mkdir -p "$CONFIG_DIR"
 chmod 700 "$CONFIG_DIR"
 
-# 3. Prompt for API Key & Standardize key.env
 KEY_FILE="$CONFIG_DIR/key.env"
 existing_key=""
 
-# Check environment variable first
+# Kiểm tra biến môi trường hoặc key.env đã lưu trước đó
 if [ -n "$DEEPSEEK_API_KEY" ] && [ "$DEEPSEEK_API_KEY" != "sk-your-key-here" ]; then
     existing_key="$DEEPSEEK_API_KEY"
-# Check existing key file
 elif [ -f "$KEY_FILE" ]; then
     existing_key=$(sed -E -n 's/^[[:space:]]*(export[[:space:]]+)?DEEPSEEK_API_KEY[[:space:]]*=[[:space:]]*["'"'"']?([^"'"'"'[:space:]#]+).*/\2/p' "$KEY_FILE" | tail -n 1)
 fi
 
+# Hiển thị khung TUI cấu hình API Key
+echo -e "${CYAN}┌────────────────────────────────────────────────────────────────────────┐${NC}"
+echo -e "${CYAN}│${NC}                   ${BOLD}CẤU HÌNH DEEPSEEK API KEY${NC}                            ${CYAN}│${NC}"
+echo -e "${CYAN}├────────────────────────────────────────────────────────────────────────┤${NC}"
+echo -e "${CYAN}│${NC}  • Lấy API Key chính thức tại: ${BOLD}https://platform.deepseek.com/api_keys${NC}   ${CYAN}│${NC}"
+echo -e "${CYAN}│${NC}  • Khóa lưu bảo mật tại: ${DIM}~/.config/claude-deepseek/key.env${NC}             ${CYAN}│${NC}"
+echo -e "${CYAN}│${NC}  • Phân quyền an toàn: ${GREEN}chmod 600${NC} (Chỉ riêng tài khoản của bạn đọc được) ${CYAN}│${NC}"
+echo -e "${CYAN}└────────────────────────────────────────────────────────────────────────┘${NC}"
+
+api_key=""
 if [ -n "$existing_key" ] && [ "$existing_key" != "sk-your-key-here" ]; then
-    echo "✅ DeepSeek API Key detected in environment or $KEY_FILE"
-    echo "export DEEPSEEK_API_KEY=\"$existing_key\"" > "$KEY_FILE"
-    chmod 600 "$KEY_FILE"
+    masked=$(mask_key "$existing_key")
+    echo -e "  ${GREEN}✔${NC} Tìm thấy API Key hiện tại: ${BOLD}${masked}${NC}"
+    if [ -r /dev/tty ] || [ -t 0 ]; then
+        prompt_tty "  Nhấn ${BOLD}[Enter]${NC} để dùng lại key này, hoặc nhập key mới: " user_input
+        user_input=$(echo "$user_input" | tr -d "'\" ")
+        if [ -n "$user_input" ]; then
+            api_key="$user_input"
+        else
+            api_key="$existing_key"
+        fi
+    else
+        api_key="$existing_key"
+    fi
 else
-    api_key=""
-    # When piped via curl ... | bash, stdin is the curl pipe. Read from /dev/tty for keyboard input.
-    if [ -r /dev/tty ]; then
-        printf "Enter your DeepSeek API Key (sk-...): "
-        read -r api_key < /dev/tty || true
-    elif [ -t 0 ]; then
-        printf "Enter your DeepSeek API Key (sk-...): "
-        read -r api_key || true
+    if [ -r /dev/tty ] || [ -t 0 ]; then
+        prompt_tty "  ${YELLOW}Nhập DeepSeek API Key (sk-...): ${NC}" api_key
+        api_key=$(echo "$api_key" | tr -d "'\" ")
     fi
-
-    api_key=$(echo "$api_key" | tr -d "'\" ")
-    if [ -z "$api_key" ]; then
-        echo ""
-        echo "❌ Error: DeepSeek API Key cannot be empty."
-        echo ""
-        echo "💡 Tip: If installing in a headless or automated environment, pass DEEPSEEK_API_KEY:"
-        echo "   export DEEPSEEK_API_KEY=\"sk-your-api-key\""
-        echo "   curl -sL https://raw.githubusercontent.com/ryzen30xx/claude-deepseek-setup/main/install.sh | bash"
-        exit 1
-    fi
-    echo "export DEEPSEEK_API_KEY=\"$api_key\"" > "$KEY_FILE"
-    chmod 600 "$KEY_FILE"
-    echo "✅ API Key saved securely."
 fi
 
-# Initialize default profile (Pro + 128k context) if not already set
-PROFILE_FILE="$CONFIG_DIR/profile.env"
-if [ ! -f "$PROFILE_FILE" ]; then
-    cat > "$PROFILE_FILE" << 'EOF'
-export DEFAULT_MODEL="deepseek-v4-pro"
-export DEFAULT_CONTEXT="128k"
-EOF
-    chmod 600 "$PROFILE_FILE"
-    echo "✅ Initialized default profile: deepseek-v4-pro (128K context)"
+if [ -z "$api_key" ] || [ "$api_key" = "sk-your-key-here" ]; then
+    echo ""
+    echo -e "  ${RED}❌ Lỗi: DeepSeek API Key không được để trống!${NC}"
+    echo -e "  💡 Gợi ý: Nếu chạy cài đặt tự động/headless, bạn có thể truyền key trước:"
+    echo -e "     ${BOLD}DEEPSEEK_API_KEY=\"sk-your-key\" curl -fsSL https://... | bash${NC}"
+    exit 1
 fi
 
-# 4. Pull Skills from External GitHub Repository
+# TUI chọn Model & Context Profile ban đầu
+chosen_model="deepseek-v4-pro"
+chosen_context="128k"
+
+if [ -r /dev/tty ] || [ -t 0 ]; then
+    echo ""
+    echo -e "${CYAN}┌────────────────────────────────────────────────────────────────────────┐${NC}"
+    echo -e "${CYAN}│${NC}               ${BOLD}CHỌN PROFILE MẶC ĐỊNH (MODEL & CONTEXT)${NC}                  ${CYAN}│${NC}"
+    echo -e "${CYAN}├────────────────────────────────────────────────────────────────────────┤${NC}"
+    echo -e "${CYAN}│${NC}  ${BOLD}DeepSeek V4 Pro${NC} (Lập trình chuyên sâu, suy luận logic):               ${CYAN}│${NC}"
+    echo -e "${CYAN}│${NC}    ${BOLD}1)${NC} Pro  - 128K Context  ${GREEN}(Khuyên dùng: Siêu rẻ, tiết kiệm token)${NC}   ${CYAN}│${NC}"
+    echo -e "${CYAN}│${NC}    ${BOLD}2)${NC} Pro  - 256K Context  (Cân bằng chi phí & ngữ cảnh)             ${CYAN}│${NC}"
+    echo -e "${CYAN}│${NC}    ${BOLD}3)${NC} Pro  - 500K Context  (Dự án lớn, refactor module)              ${CYAN}│${NC}"
+    echo -e "${CYAN}│${NC}    ${BOLD}4)${NC} Pro  - 1M   Context  (Maximum Context - 1 triệu tokens)        ${CYAN}│${NC}"
+    echo -e "${CYAN}│${NC}                                                                        ${CYAN}│${NC}"
+    echo -e "${CYAN}│${NC}  ${BOLD}DeepSeek Flash${NC} (Tốc độ cao, phản hồi tức thì):                     ${CYAN}│${NC}"
+    echo -e "${CYAN}│${NC}    ${BOLD}5)${NC} Flash - 128K Context (Siêu tốc độ & siêu rẻ)                   ${CYAN}│${NC}"
+    echo -e "${CYAN}│${NC}    ${BOLD}6)${NC} Flash - 256K Context (Nhanh & cân bằng)                        ${CYAN}│${NC}"
+    echo -e "${CYAN}│${NC}    ${BOLD}7)${NC} Flash - 500K Context (Dự án lớn, tốc độ cao)                   ${CYAN}│${NC}"
+    echo -e "${CYAN}│${NC}    ${BOLD}8)${NC} Flash - 1M   Context (Maximum Context, tốc độ cao)             ${CYAN}│${NC}"
+    echo -e "${CYAN}└────────────────────────────────────────────────────────────────────────┘${NC}"
+    prompt_tty "  Chọn profile [1-8] (Mặc định: 1 - Pro 128K): " profile_input
+    profile_input=$(echo "$profile_input" | tr -d ' ')
+    case "$profile_input" in
+        1|"") chosen_model="deepseek-v4-pro"; chosen_context="128k" ;;
+        2)    chosen_model="deepseek-v4-pro"; chosen_context="256k" ;;
+        3)    chosen_model="deepseek-v4-pro"; chosen_context="500k" ;;
+        4)    chosen_model="deepseek-v4-pro"; chosen_context="1m" ;;
+        5)    chosen_model="deepseek-flash";  chosen_context="128k" ;;
+        6)    chosen_model="deepseek-flash";  chosen_context="256k" ;;
+        7)    chosen_model="deepseek-flash";  chosen_context="500k" ;;
+        8)    chosen_model="deepseek-flash";  chosen_context="1m" ;;
+        *)    echo "  ℹ️  Lựa chọn không xác định, sử dụng mặc định: Pro (128K context)" ;;
+    esac
+fi
+
+# ------------------------------------------------------------------------------
+# 3. API KEY ĐƯỢC VIẾT VÀO CONFIGURE VÀ TẠO CONFIGURE
+# ------------------------------------------------------------------------------
 echo ""
-echo "Installing custom Claude Code Skills from GitHub..."
-mkdir -p "$HOME/.claude/skills"
+echo -e "${BLUE}⚙️  [3/4] Ghi cấu hình và triển khai môi trường...${NC}"
 
+# Ghi API Key vào key.env
+echo "export DEEPSEEK_API_KEY=\"$api_key\"" > "$KEY_FILE"
+chmod 600 "$KEY_FILE"
+echo -e "  ${GREEN}✔${NC} Đã ghi API Key bảo mật vào: ${DIM}$KEY_FILE${NC} (chmod 600)"
+
+# Ghi Profile mặc định vào profile.env
+PROFILE_FILE="$CONFIG_DIR/profile.env"
+cat > "$PROFILE_FILE" << EOF
+export DEFAULT_MODEL="$chosen_model"
+export DEFAULT_CONTEXT="$chosen_context"
+EOF
+chmod 600 "$PROFILE_FILE"
+echo -e "  ${GREEN}✔${NC} Đã tạo Profile mặc định: ${BOLD}$chosen_model${NC} [${BOLD}$chosen_context${NC}]"
+
+# Tải Skills mở rộng từ GitHub
+echo -e "  ⚡ Đang đồng bộ Claude Code Skills..."
+mkdir -p "$HOME/.claude/skills"
 SKILLS_REPO_URL="https://github.com/ryzen30xx/Skills.git"
 TEMP_SKILLS_DIR="/tmp/claude-skills-clone"
-
-echo "Cloning skills from $SKILLS_REPO_URL..."
 rm -rf "$TEMP_SKILLS_DIR"
+
 if command -v gh &> /dev/null && gh auth status &> /dev/null; then
     gh repo clone "$SKILLS_REPO_URL" "$TEMP_SKILLS_DIR" 2>/dev/null || GIT_TERMINAL_PROMPT=0 git clone "$SKILLS_REPO_URL" "$TEMP_SKILLS_DIR" 2>/dev/null || true
 else
@@ -110,14 +244,12 @@ if [ -d "$TEMP_SKILLS_DIR" ] && [ -n "$(ls -A "$TEMP_SKILLS_DIR" 2>/dev/null)" ]
     find "$TEMP_SKILLS_DIR" -mindepth 1 -maxdepth 1 -exec basename {} \; > "$CONFIG_DIR/installed_skills.txt"
     cp -R "$TEMP_SKILLS_DIR/"* "$HOME/.claude/skills/"
     rm -rf "$TEMP_SKILLS_DIR"
-    echo "✅ Custom skills installed successfully to ~/.claude/skills/"
+    echo -e "  ${GREEN}✔${NC} Đã cài đặt skills vào ~/.claude/skills/"
 else
-    echo "⚠️ Notice: Skills repository unavailable or already present. Continuing..."
+    echo -e "  ℹ️  Kho Skills đã sẵn sàng hoặc bỏ qua."
 fi
 
-# 5. Configure Claude Code global settings (~/.claude/settings.json)
-echo ""
-echo "Configuring Claude Code model picker..."
+# Cấu hình Claude Code toàn cục (~/.claude/settings.json)
 mkdir -p "$HOME/.claude"
 python3 - << 'PY_EOF' 2>/dev/null || true
 import json, os
@@ -161,7 +293,7 @@ data["theme"] = "dark"
 with open(settings_path, "w") as f:
     json.dump(data, f, indent=2)
 
-# Auto-approve workspace trust for home directory in ~/.claude.json
+# Tự động approve workspace trust cho thư mục $HOME trong ~/.claude.json
 claude_json_path = os.path.expanduser("~/.claude.json")
 if os.path.exists(claude_json_path):
     try:
@@ -176,11 +308,9 @@ if os.path.exists(claude_json_path):
     except Exception:
         pass
 PY_EOF
-echo "✅ Configured model picker in ~/.claude/settings.json"
+echo -e "  ${GREEN}✔${NC} Đã cấu hình modelPicker và tự động cấp trust cho workspace $HOME"
 
-# 6. Deploy claude-ds.sh script
-echo ""
-echo "Installing claude-ds runner script..."
+# Triển khai runner script claude-ds.sh vào CONFIG_DIR
 SCRIPT_TARGET="$CONFIG_DIR/claude-ds.sh"
 
 cat > "$SCRIPT_TARGET" << 'RUNNER_EOF'
@@ -274,40 +404,39 @@ claude-ds() {
 
     if [ "$1" = "config" ]; then
         if [ "$2" = "context" ] && [ -n "$3" ]; then
-            local new_c=$(echo "$3" | tr '[:upper:]' '[:lower:]')
-            case "$new_c" in
-                128k|256k|500k|1m|1000k)
-                    [ "$new_c" = "1000k" ] && new_c="1m"
+            local ctx_input=$(echo "$3" | tr '[:upper:]' '[:lower:]')
+            case "$ctx_input" in
+                128k|256k|500k|1m)
                     echo "export DEFAULT_MODEL=\"$default_model\"" > "$profile_file"
-                    echo "export DEFAULT_CONTEXT=\"$new_c\"" >> "$profile_file"
+                    echo "export DEFAULT_CONTEXT=\"$ctx_input\"" >> "$profile_file"
                     chmod 600 "$profile_file"
-                    echo "✅ Saved default context: $new_c"
+                    echo "✅ Default context set to: $ctx_input"
                     return 0
                     ;;
                 *)
-                    echo "❌ Invalid context limit: $3. Choose: 128k, 256k, 500k, 1m"
+                    echo "❌ Invalid context. Choose from: 128k, 256k, 500k, 1m"
                     return 1
                     ;;
             esac
         elif [ "$2" = "model" ] && [ -n "$3" ]; then
-            local new_m=$(echo "$3" | tr '[:upper:]' '[:lower:]')
-            case "$new_m" in
+            local mdl_input=$(echo "$3" | tr '[:upper:]' '[:lower:]')
+            case "$mdl_input" in
                 pro|deepseek-v4-pro)
                     echo "export DEFAULT_MODEL=\"deepseek-v4-pro\"" > "$profile_file"
                     echo "export DEFAULT_CONTEXT=\"$default_context\"" >> "$profile_file"
                     chmod 600 "$profile_file"
-                    echo "✅ Saved default model: deepseek-v4-pro"
+                    echo "✅ Default model set to: deepseek-v4-pro"
                     return 0
                     ;;
                 flash|deepseek-flash)
                     echo "export DEFAULT_MODEL=\"deepseek-flash\"" > "$profile_file"
                     echo "export DEFAULT_CONTEXT=\"$default_context\"" >> "$profile_file"
                     chmod 600 "$profile_file"
-                    echo "✅ Saved default model: deepseek-flash"
+                    echo "✅ Default model set to: deepseek-flash"
                     return 0
                     ;;
                 *)
-                    echo "❌ Invalid model: $3. Choose: pro, flash"
+                    echo "❌ Invalid model. Choose from: pro, flash"
                     return 1
                     ;;
             esac
@@ -325,12 +454,12 @@ claude-ds() {
         fi
     fi
 
-    local selected_model=""
-    local selected_context=""
+    local selected_model="$default_model"
+    local selected_context="$default_context"
     local pass_args=()
 
-    # Interactive Profile Selector
-    if [ "$1" = "profile" ] || [ "$1" = "-p" ] || [ "$1" = "menu" ]; then
+    # Interactive Profile Selector Menu
+    if [ "$1" = "profile" ] || [ "$1" = "menu" ] || [ "$1" = "-p" ]; then
         echo ""
         echo "========================================================================"
         echo "   ⚡ DeepSeek Model & Context Profile Selector"
@@ -372,11 +501,11 @@ claude-ds() {
             local arg="$1"
             local lower_arg=$(echo "$arg" | tr '[:upper:]' '[:lower:]')
             case "$lower_arg" in
-                pro|--pro|deepseek-v4-pro)
+                --pro|pro|deepseek-v4-pro)
                     selected_model="deepseek-v4-pro"
                     shift
                     ;;
-                flash|--flash|deepseek-flash)
+                --flash|flash|deepseek-flash)
                     selected_model="deepseek-flash"
                     shift
                     ;;
@@ -396,45 +525,6 @@ claude-ds() {
                     selected_context="1m"
                     shift
                     ;;
-                -c|--context)
-                    if [ -n "$2" ]; then
-                        local c_arg=$(echo "$2" | tr '[:upper:]' '[:lower:]')
-                        case "$c_arg" in
-                            128k|256k|500k|1m|1000k)
-                                [ "$c_arg" = "1000k" ] && c_arg="1m"
-                                selected_context="$c_arg"
-                                shift 2
-                                ;;
-                            *)
-                                echo "❌ Invalid context limit: $2. Choose: 128k, 256k, 500k, 1m"
-                                return 1
-                                ;;
-                        esac
-                    else
-                        shift
-                    fi
-                    ;;
-                -m|--model)
-                    if [ -n "$2" ]; then
-                        local m_arg=$(echo "$2" | tr '[:upper:]' '[:lower:]')
-                        case "$m_arg" in
-                            pro|deepseek-v4-pro)
-                                selected_model="deepseek-v4-pro"
-                                shift 2
-                                ;;
-                            flash|deepseek-flash)
-                                selected_model="deepseek-flash"
-                                shift 2
-                                ;;
-                            *)
-                                echo "❌ Invalid model: $2. Choose: pro, flash"
-                                return 1
-                                ;;
-                        esac
-                    else
-                        shift
-                    fi
-                    ;;
                 *)
                     pass_args+=("$1")
                     shift
@@ -443,51 +533,51 @@ claude-ds() {
         done
     fi
 
-    # Fallback to configured defaults if not specified
-    [ -z "$selected_model" ] && selected_model="$default_model"
-    [ -z "$selected_context" ] && selected_context="$default_context"
-
-    # Map context profile to exact token limit & friendly label
-    local max_tokens="128000"
+    # 5. Map context profiles to CLAUDE_CODE_MAX_CONTEXT_TOKENS
+    local max_tokens=128000
     local context_label="128K (Cost-Saver)"
     case "$selected_context" in
         128k)
-            max_tokens="128000"
+            max_tokens=128000
             context_label="128K (Cost-Saver)"
             ;;
         256k)
-            max_tokens="256000"
+            max_tokens=256000
             context_label="256K (Balanced)"
             ;;
         500k)
-            max_tokens="500000"
+            max_tokens=500000
             context_label="500K (Deep Refactor)"
             ;;
         1m)
-            max_tokens="1000000"
-            context_label="1M (Maximum Context)"
+            max_tokens=1000000
+            context_label="1M (Max Context)"
             ;;
         *)
-            max_tokens="128000"
+            max_tokens=128000
             context_label="128K (Cost-Saver)"
             ;;
     esac
 
-    # 5. Export session-level environment variables
-    export ANTHROPIC_BASE_URL="https://api.deepseek.com/anthropic"
-    export ANTHROPIC_AUTH_TOKEN="$api_key"
-    export ANTHROPIC_API_KEY="$api_key"
+    # Set client-side context compression threshold
     export CLAUDE_CODE_MAX_CONTEXT_TOKENS="$max_tokens"
     export CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT="1"
 
-    # 6. Generate settings JSON file
-    cat > "$settings_file" <<EOF
+    # 6. Generate session settings file
+    cat > "$settings_file" << EOF
 {
+  "model": "$selected_model",
+  "theme": "dark",
+  "skipDangerousModePermissionPrompt": true,
+  "modelSettings": {
+    "deepseek-v4-pro": {
+      "effortLevel": "low"
+    },
+    "deepseek-flash": {
+      "effortLevel": "low"
+    }
+  },
   "env": {
-    "CLAUDE_CODE_USE_VERTEX": "",
-    "ANTHROPIC_VERTEX_PROJECT_ID": "",
-    "CLOUD_ML_REGION": "",
-    "ANTHROPIC_DEFAULT_OPUS_MODEL": "",
     "ANTHROPIC_BASE_URL": "https://api.deepseek.com/anthropic",
     "ANTHROPIC_AUTH_TOKEN": "$api_key",
     "ANTHROPIC_API_KEY": "$api_key",
@@ -557,11 +647,13 @@ fi
 RUNNER_EOF
 
 chmod 755 "$SCRIPT_TARGET"
-echo "✅ Installed claude-ds runner to $SCRIPT_TARGET"
+echo -e "  ${GREEN}✔${NC} Đã cài đặt launcher script tại: $SCRIPT_TARGET"
 
-# 7. Configure Shell RC files with isolated, clean source lines
+# ------------------------------------------------------------------------------
+# 4. ADD TO BASHRC, ZSHRC TÙY MÔI TRƯỜNG
+# ------------------------------------------------------------------------------
 echo ""
-echo "Configuring shell profiles..."
+echo -e "${BLUE}🐚 [4/4] Tích hợp vào Shell profile theo môi trường...${NC}"
 
 CLEAN_BLOCK='# >>> claude-code-deepseek >>>
 # Claude Code with DeepSeek API
@@ -573,7 +665,7 @@ configure_rc_file() {
     local rc_file="$1"
     [ ! -f "$rc_file" ] && return 0
 
-    # Clean legacy inline function claude-ds if present
+    # Dọn sạch các hàm inline claude-ds cũ nếu có
     if grep -q "function claude-ds()" "$rc_file" 2>/dev/null; then
         python3 -c "
 import re
@@ -585,7 +677,7 @@ open(path, 'w').write(content)
 " 2>/dev/null || true
     fi
 
-    # Clean existing block or legacy mg-deepseek references
+    # Dọn dẹp block cũ hoặc các dòng mg-deepseek cũ
     python3 -c "
 import re
 path = '$rc_file'
@@ -595,49 +687,67 @@ content = re.sub(r'\n*\[ -f \"\$HOME/\.config/mg-deepseek/claude-ds\.sh\" \] && 
 open(path, 'w').write(content)
 " 2>/dev/null || true
 
-    # Append clean block
+    # Thêm khối cấu hình cô lập mới
     echo "" >> "$rc_file"
     echo "$CLEAN_BLOCK" >> "$rc_file"
-    echo "✅ Updated isolated claude-ds configuration in $rc_file"
+    echo -e "  ${GREEN}✔${NC} Đã tích hợp cấu hình cô lập vào ${BOLD}$rc_file${NC}"
 }
 
-configure_rc_file "$HOME/.zshrc"
-configure_rc_file "$HOME/.bashrc"
+user_shell=$(basename "${SHELL:-bash}")
+target_rcs=()
 
-# 8. Automatically source / reload configuration
-echo ""
-echo "Reloading shell configuration..."
+[ -f "$HOME/.zshrc" ] && target_rcs+=("$HOME/.zshrc")
+[ -f "$HOME/.bashrc" ] && target_rcs+=("$HOME/.bashrc")
 
-if [ -f "$HOME/.zshrc" ]; then
-    if [ -n "$ZSH_VERSION" ]; then
-        source "$HOME/.zshrc" 2>/dev/null || true
-        echo "✅ Automatically reloaded ~/.zshrc in current session"
-    elif command -v zsh &> /dev/null; then
-        zsh -c "source $HOME/.zshrc" 2>/dev/null || true
-        echo "✅ Pre-compiled and reloaded ~/.zshrc"
+# Nếu cả hai file rc đều chưa có, tự tạo theo shell của user
+if [ ${#target_rcs[@]} -eq 0 ]; then
+    if [ "$user_shell" = "zsh" ]; then
+        touch "$HOME/.zshrc"
+        target_rcs+=("$HOME/.zshrc")
+    else
+        touch "$HOME/.bashrc"
+        target_rcs+=("$HOME/.bashrc")
     fi
 fi
 
-if [ -n "$BASH_VERSION" ] && [ -f "$HOME/.bashrc" ]; then
-    source "$HOME/.bashrc" 2>/dev/null || true
-    echo "✅ Automatically reloaded ~/.bashrc in current session"
+for rc in "${target_rcs[@]}"; do
+    configure_rc_file "$rc"
+done
+
+# Tự động nạp lại cấu hình vào shell
+if [ -f "$HOME/.zshrc" ] && [ "$user_shell" = "zsh" ]; then
+    if [ -n "$ZSH_VERSION" ]; then
+        source "$HOME/.zshrc" 2>/dev/null || true
+    elif command -v zsh &>/dev/null; then
+        zsh -c "source $HOME/.zshrc" 2>/dev/null || true
+    fi
 fi
 
-# Always source the newly deployed runner script directly into current environment
+if [ -f "$HOME/.bashrc" ] && [ "$user_shell" = "bash" ]; then
+    if [ -n "$BASH_VERSION" ]; then
+        source "$HOME/.bashrc" 2>/dev/null || true
+    fi
+fi
+
+# Nạp trực tiếp runner vào phiên cài đặt hiện tại
 if [ -f "$SCRIPT_TARGET" ]; then
     source "$SCRIPT_TARGET" 2>/dev/null || true
 fi
 
+# ------------------------------------------------------------------------------
+# 5. TỔNG KẾT HOÀN TẤT
+# ------------------------------------------------------------------------------
 echo ""
-echo "=================================================="
-echo "🎉 Installation Complete!"
-echo "Shell configuration has been automatically reloaded."
+echo -e "${GREEN}========================================================================${NC}"
+echo -e "${BOLD}${GREEN}🎉 CÀI ĐẶT THÀNH CÔNG!${NC}"
+echo -e "${GREEN}========================================================================${NC}"
+echo -e "Toàn bộ cấu hình đã được thiết lập và kích hoạt sẵn sàng."
 echo ""
-echo "Quick Commands:"
-echo "  claude-ds                          # Default profile (Pro, 128K context)"
-echo "  claude-ds 128k | 256k | 500k | 1m  # Choose context size"
-echo "  claude-ds pro | flash              # Choose model"
-echo "  claude-ds flash 128k               # Fast + Cost-saver"
-echo "  claude-ds profile                  # Interactive profile menu"
-echo "  claude-ds config                   # Manage persistent defaults"
-echo "=================================================="
+echo -e "${BOLD}Các lệnh sử dụng nhanh:${NC}"
+echo -e "  ${CYAN}claude-ds${NC}                          # Chạy với profile mặc định (${BOLD}$chosen_model${NC}, ${BOLD}$chosen_context${NC})"
+echo -e "  ${CYAN}claude-ds profile${NC}                  # Menu TUI tương tác chọn model & context"
+echo -e "  ${CYAN}claude-ds 128k${NC}                     # Chạy nhanh với 128K context (tiết kiệm chi phí)"
+echo -e "  ${CYAN}claude-ds pro 256k${NC}                 # Chạy DeepSeek Pro với 256K context"
+echo -e "  ${CYAN}claude-ds flash 128k${NC}               # Chạy DeepSeek Flash siêu tốc"
+echo -e "  ${CYAN}claude-ds config${NC}                   # Xem và quản lý cấu hình mặc định"
+echo -e "${GREEN}========================================================================${NC}"
