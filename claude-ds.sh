@@ -7,6 +7,9 @@
 # ==============================================================================
 
 claude-ds() {
+    # Ensure ~/.local/bin is in PATH for standalone Claude Code binary
+    [ -d "$HOME/.local/bin" ] && case ":$PATH:" in *":$HOME/.local/bin:"*) ;; *) export PATH="$HOME/.local/bin:$PATH" ;; esac
+
     # Auto-migrate legacy ~/.config/mg-deepseek if found
     if [ -d "$HOME/.config/mg-deepseek" ] && [ ! -d "$HOME/.config/claude-deepseek" ]; then
         mv "$HOME/.config/mg-deepseek" "$HOME/.config/claude-deepseek" 2>/dev/null || true
@@ -159,7 +162,11 @@ claude-ds() {
         echo "     8) Flash - 1M   Context (Maximum Context, tốc độ cao)"
         echo "========================================================================"
         printf "Chọn profile [1-8] (mặc định 1): "
-        read -r profile_choice
+        if [ -r /dev/tty ]; then
+            read -r profile_choice < /dev/tty || true
+        else
+            read -r profile_choice || true
+        fi
         case "$profile_choice" in
             1|"") selected_model="deepseek-v4-pro"; selected_context="128k" ;;
             2)    selected_model="deepseek-v4-pro"; selected_context="256k" ;;

@@ -43,7 +43,12 @@ echo ""
 
 if [ "$FORCE" = false ]; then
     printf "Are you sure you want to uninstall Claude Code DeepSeek setup? [y/N]: "
-    read -r confirm
+    confirm=""
+    if [ -r /dev/tty ]; then
+        read -r confirm < /dev/tty || true
+    elif [ -t 0 ]; then
+        read -r confirm || true
+    fi
     case "$confirm" in
         [yY][eE][sS]|[yY])
             ;;

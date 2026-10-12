@@ -13,10 +13,15 @@ Hệ thống này cung cấp kiến trúc hoàn chỉnh để định tuyến to
 Run this command in your terminal:
 
 ```bash
-curl -sL https://raw.githubusercontent.com/ryzen30xx/claude-deepseek-setup/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/ryzen30xx/claude-deepseek-setup/main/install.sh | bash
 ```
 
-*(Or clone the repository and run `./install.sh`)*
+Hoặc truyền sẵn API key (không cần prompt tương tác):
+```bash
+DEEPSEEK_API_KEY="sk-your-key" curl -fsSL https://raw.githubusercontent.com/ryzen30xx/claude-deepseek-setup/main/install.sh | bash
+```
+
+*(Hoặc clone repository và chạy `./install.sh`)*
 
 During installation, the script will:
 1. Ensure Claude Code is installed.

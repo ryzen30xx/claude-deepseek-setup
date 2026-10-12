@@ -8,6 +8,8 @@ echo "=================================================="
 echo ""
 
 # 1. Install Claude Code if not installed
+[ -d "$HOME/.local/bin" ] && case ":$PATH:" in *":$HOME/.local/bin:"*) ;; *) export PATH="$HOME/.local/bin:$PATH" ;; esac
+
 if ! command -v claude &> /dev/null && [ ! -f ~/.local/bin/claude ]; then
     echo "Installing Claude Code..."
     curl -fsSL https://claude.ai/install.sh | bash
@@ -38,20 +40,38 @@ chmod 700 "$CONFIG_DIR"
 # 3. Prompt for API Key & Standardize key.env
 KEY_FILE="$CONFIG_DIR/key.env"
 existing_key=""
-if [ -f "$KEY_FILE" ]; then
+
+# Check environment variable first
+if [ -n "$DEEPSEEK_API_KEY" ] && [ "$DEEPSEEK_API_KEY" != "sk-your-key-here" ]; then
+    existing_key="$DEEPSEEK_API_KEY"
+# Check existing key file
+elif [ -f "$KEY_FILE" ]; then
     existing_key=$(sed -E -n 's/^[[:space:]]*(export[[:space:]]+)?DEEPSEEK_API_KEY[[:space:]]*=[[:space:]]*["'"'"']?([^"'"'"'[:space:]#]+).*/\2/p' "$KEY_FILE" | tail -n 1)
 fi
 
 if [ -n "$existing_key" ] && [ "$existing_key" != "sk-your-key-here" ]; then
-    echo "✅ DeepSeek API Key detected in $KEY_FILE"
+    echo "✅ DeepSeek API Key detected in environment or $KEY_FILE"
     echo "export DEEPSEEK_API_KEY=\"$existing_key\"" > "$KEY_FILE"
     chmod 600 "$KEY_FILE"
 else
-    printf "Enter your DeepSeek API Key (sk-...): "
-    read -r api_key
+    api_key=""
+    # When piped via curl ... | bash, stdin is the curl pipe. Read from /dev/tty for keyboard input.
+    if [ -r /dev/tty ]; then
+        printf "Enter your DeepSeek API Key (sk-...): "
+        read -r api_key < /dev/tty || true
+    elif [ -t 0 ]; then
+        printf "Enter your DeepSeek API Key (sk-...): "
+        read -r api_key || true
+    fi
+
     api_key=$(echo "$api_key" | tr -d "'\" ")
     if [ -z "$api_key" ]; then
-        echo "Error: API Key cannot be empty."
+        echo ""
+        echo "❌ Error: DeepSeek API Key cannot be empty."
+        echo ""
+        echo "💡 Tip: If installing in a headless or automated environment, pass DEEPSEEK_API_KEY:"
+        echo "   export DEEPSEEK_API_KEY=\"sk-your-api-key\""
+        echo "   curl -sL https://raw.githubusercontent.com/ryzen30xx/claude-deepseek-setup/main/install.sh | bash"
         exit 1
     fi
     echo "export DEEPSEEK_API_KEY=\"$api_key\"" > "$KEY_FILE"
@@ -81,9 +101,9 @@ TEMP_SKILLS_DIR="/tmp/claude-skills-clone"
 echo "Cloning skills from $SKILLS_REPO_URL..."
 rm -rf "$TEMP_SKILLS_DIR"
 if command -v gh &> /dev/null && gh auth status &> /dev/null; then
-    gh repo clone "$SKILLS_REPO_URL" "$TEMP_SKILLS_DIR" 2>/dev/null || git clone "$SKILLS_REPO_URL" "$TEMP_SKILLS_DIR" 2>/dev/null || true
+    gh repo clone "$SKILLS_REPO_URL" "$TEMP_SKILLS_DIR" 2>/dev/null || GIT_TERMINAL_PROMPT=0 git clone "$SKILLS_REPO_URL" "$TEMP_SKILLS_DIR" 2>/dev/null || true
 else
-    git clone "$SKILLS_REPO_URL" "$TEMP_SKILLS_DIR" 2>/dev/null || true
+    GIT_TERMINAL_PROMPT=0 git clone "$SKILLS_REPO_URL" "$TEMP_SKILLS_DIR" 2>/dev/null || true
 fi
 
 if [ -d "$TEMP_SKILLS_DIR" ] && [ -n "$(ls -A "$TEMP_SKILLS_DIR" 2>/dev/null)" ]; then
@@ -173,6 +193,9 @@ cat > "$SCRIPT_TARGET" << 'RUNNER_EOF'
 # ==============================================================================
 
 claude-ds() {
+    # Ensure ~/.local/bin is in PATH for standalone Claude Code binary
+    [ -d "$HOME/.local/bin" ] && case ":$PATH:" in *":$HOME/.local/bin:"*) ;; *) export PATH="$HOME/.local/bin:$PATH" ;; esac
+
     # Auto-migrate legacy ~/.config/mg-deepseek if found
     if [ -d "$HOME/.config/mg-deepseek" ] && [ ! -d "$HOME/.config/claude-deepseek" ]; then
         mv "$HOME/.config/mg-deepseek" "$HOME/.config/claude-deepseek" 2>/dev/null || true
@@ -325,7 +348,11 @@ claude-ds() {
         echo "     8) Flash - 1M   Context (Maximum Context, tốc độ cao)"
         echo "========================================================================"
         printf "Chọn profile [1-8] (mặc định 1): "
-        read -r profile_choice
+        if [ -r /dev/tty ]; then
+            read -r profile_choice < /dev/tty || true
+        else
+            read -r profile_choice || true
+        fi
         case "$profile_choice" in
             1|"") selected_model="deepseek-v4-pro"; selected_context="128k" ;;
             2)    selected_model="deepseek-v4-pro"; selected_context="256k" ;;
@@ -538,6 +565,7 @@ echo "Configuring shell profiles..."
 
 CLEAN_BLOCK='# >>> claude-code-deepseek >>>
 # Claude Code with DeepSeek API
+[ -d "$HOME/.local/bin" ] && case ":$PATH:" in *":$HOME/.local/bin:"*) ;; *) export PATH="$HOME/.local/bin:$PATH" ;; esac
 [ -f "$HOME/.config/claude-deepseek/claude-ds.sh" ] && source "$HOME/.config/claude-deepseek/claude-ds.sh"
 # <<< claude-code-deepseek <<<'
 
