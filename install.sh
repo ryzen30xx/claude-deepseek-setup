@@ -263,21 +263,7 @@ if os.path.exists(settings_path):
         data = {}
 
 data["model"] = "deepseek-v4-pro"
-data["modelPicker"] = {
-    "options": [
-        {
-            "model": "deepseek-v4-pro",
-            "label": "DeepSeek V4 Pro",
-            "description": "DeepSeek-V4-Pro-0813 · Reasoning & Coding"
-        },
-        {
-            "model": "deepseek-flash",
-            "label": "DeepSeek Flash",
-            "description": "DeepSeek-V4.1-Flash · Fast & Efficient"
-        }
-    ],
-    "replaceBuiltInOptions": True
-}
+data.pop("modelPicker", None)
 data.pop("modelOverrides", None)
 data["modelSettings"] = {
     "deepseek-v4-pro": {
@@ -563,48 +549,26 @@ claude-ds() {
     export CLAUDE_CODE_MAX_CONTEXT_TOKENS="$max_tokens"
     export CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT="1"
 
-    # 6. Generate session settings file
+    # 6. Generate settings JSON file (env-only to avoid shadowing managedSettings policy)
     cat > "$settings_file" << EOF
 {
-  "model": "$selected_model",
-  "theme": "dark",
-  "skipDangerousModePermissionPrompt": true,
-  "modelSettings": {
-    "deepseek-v4-pro": {
-      "effortLevel": "low"
-    },
-    "deepseek-flash": {
-      "effortLevel": "low"
-    }
-  },
   "env": {
+    "CLAUDE_CODE_USE_VERTEX": "",
+    "ANTHROPIC_VERTEX_PROJECT_ID": "",
+    "CLOUD_ML_REGION": "",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "",
     "ANTHROPIC_BASE_URL": "https://api.deepseek.com/anthropic",
     "ANTHROPIC_AUTH_TOKEN": "$api_key",
     "ANTHROPIC_API_KEY": "$api_key",
     "CLAUDE_CODE_MAX_CONTEXT_TOKENS": "$max_tokens",
     "CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT": "1"
-  },
-  "modelPicker": {
-    "options": [
-      {
-        "model": "deepseek-v4-pro",
-        "label": "DeepSeek V4 Pro",
-        "description": "DeepSeek-V4-Pro-0813 · Context: $context_label · Reasoning & Coding"
-      },
-      {
-        "model": "deepseek-flash",
-        "label": "DeepSeek Flash",
-        "description": "DeepSeek-V4.1-Flash · Context: $context_label · Fast & Efficient"
-      }
-    ],
-    "replaceBuiltInOptions": true
   }
 }
 EOF
     chmod 600 "$settings_file"
 
     # 7. Construct policy-tier managed settings JSON string to suppress built-in Anthropic models
-    local managed_settings="{\"availableModels\":[\"deepseek-v4-pro\",\"deepseek-flash\"],\"modelPicker\":{\"options\":[{\"model\":\"deepseek-v4-pro\",\"label\":\"DeepSeek V4 Pro\",\"description\":\"DeepSeek-V4-Pro-0813 · Context: ${context_label} · Reasoning & Coding\"},{\"model\":\"deepseek-flash\",\"label\":\"DeepSeek Flash\",\"description\":\"DeepSeek-V4.1-Flash · Context: ${context_label} · Fast & Efficient\"}],\"replaceBuiltInOptions\":true}}"
+    local managed_settings="{\"availableModels\":[\"deepseek-v4-pro\",\"deepseek-flash\"],\"enforceAvailableModels\":true,\"modelPicker\":{\"options\":[{\"model\":\"deepseek-v4-pro\",\"label\":\"DeepSeek V4 Pro\",\"description\":\"DeepSeek-V4-Pro-0813 · Context: ${context_label} · Reasoning & Coding\",\"behavesAs\":\"claude-3-7-sonnet-20250219\"},{\"model\":\"deepseek-flash\",\"label\":\"DeepSeek Flash\",\"description\":\"DeepSeek-V4.1-Flash · Context: ${context_label} · Fast & Efficient\",\"behavesAs\":\"claude-3-5-sonnet-20241022\"}],\"replaceBuiltInOptions\":true}}"
 
     # 8. Print informative startup banner
     echo "========================================================================"
@@ -621,7 +585,17 @@ EOF
         system_prompt_args=(--system-prompt-file "$prompt_file")
     fi
 
-    claude --bare \
+    # Resolve underlying Claude Code binary to avoid wrapper loops
+    local real_claude=""
+    if [ -d "$HOME/.local/share/claude/versions" ]; then
+        real_claude=$(ls -d "$HOME/.local/share/claude/versions/"* 2>/dev/null | sort -V | tail -n 1)
+    fi
+    if [ -z "$real_claude" ] || [ ! -x "$real_claude" ]; then
+        real_claude=$(which claude 2>/dev/null)
+    fi
+    [ -z "$real_claude" ] && real_claude="claude"
+
+    "$real_claude" --bare \
            --settings "$settings_file" \
            --managed-settings "$managed_settings" \
            --model "$selected_model" \
@@ -647,7 +621,13 @@ fi
 RUNNER_EOF
 
 chmod 755 "$SCRIPT_TARGET"
+
+# Cài đặt symlink thực thi vào ~/.local/bin để chạy trực tiếp claude-ds từ bất kỳ shell nào
+mkdir -p "$HOME/.local/bin"
+ln -sf "$SCRIPT_TARGET" "$HOME/.local/bin/claude-ds"
+
 echo -e "  ${GREEN}✔${NC} Đã cài đặt launcher script tại: $SCRIPT_TARGET"
+echo -e "  ${GREEN}✔${NC} Đã liên kết lệnh thực thi vào: $HOME/.local/bin/claude-ds"
 
 # ------------------------------------------------------------------------------
 # 4. ADD TO BASHRC, ZSHRC TÙY MÔI TRƯỜNG
@@ -659,6 +639,7 @@ CLEAN_BLOCK='# >>> claude-code-deepseek >>>
 # Claude Code with DeepSeek API
 [ -d "$HOME/.local/bin" ] && case ":$PATH:" in *":$HOME/.local/bin:"*) ;; *) export PATH="$HOME/.local/bin:$PATH" ;; esac
 [ -f "$HOME/.config/claude-deepseek/claude-ds.sh" ] && source "$HOME/.config/claude-deepseek/claude-ds.sh"
+alias claude="claude-ds"
 # <<< claude-code-deepseek <<<'
 
 configure_rc_file() {

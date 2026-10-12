@@ -294,7 +294,7 @@ claude-ds() {
     export CLAUDE_CODE_MAX_CONTEXT_TOKENS="$max_tokens"
     export CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT="1"
 
-    # 6. Generate settings JSON file
+    # 6. Generate settings JSON file (env-only to avoid shadowing managedSettings policy)
     cat > "$settings_file" <<EOF
 {
   "env": {
@@ -307,28 +307,13 @@ claude-ds() {
     "ANTHROPIC_API_KEY": "$api_key",
     "CLAUDE_CODE_MAX_CONTEXT_TOKENS": "$max_tokens",
     "CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT": "1"
-  },
-  "modelPicker": {
-    "options": [
-      {
-        "model": "deepseek-v4-pro",
-        "label": "DeepSeek V4 Pro",
-        "description": "DeepSeek-V4-Pro-0813 · Context: $context_label · Reasoning & Coding"
-      },
-      {
-        "model": "deepseek-flash",
-        "label": "DeepSeek Flash",
-        "description": "DeepSeek-V4.1-Flash · Context: $context_label · Fast & Efficient"
-      }
-    ],
-    "replaceBuiltInOptions": true
   }
 }
 EOF
     chmod 600 "$settings_file"
 
     # 7. Construct policy-tier managed settings JSON string to suppress built-in Anthropic models
-    local managed_settings="{\"availableModels\":[\"deepseek-v4-pro\",\"deepseek-flash\"],\"modelPicker\":{\"options\":[{\"model\":\"deepseek-v4-pro\",\"label\":\"DeepSeek V4 Pro\",\"description\":\"DeepSeek-V4-Pro-0813 · Context: ${context_label} · Reasoning & Coding\"},{\"model\":\"deepseek-flash\",\"label\":\"DeepSeek Flash\",\"description\":\"DeepSeek-V4.1-Flash · Context: ${context_label} · Fast & Efficient\"}],\"replaceBuiltInOptions\":true}}"
+    local managed_settings="{\"availableModels\":[\"deepseek-v4-pro\",\"deepseek-flash\"],\"enforceAvailableModels\":true,\"modelPicker\":{\"options\":[{\"model\":\"deepseek-v4-pro\",\"label\":\"DeepSeek V4 Pro\",\"description\":\"DeepSeek-V4-Pro-0813 · Context: ${context_label} · Reasoning & Coding\",\"behavesAs\":\"claude-3-7-sonnet-20250219\"},{\"model\":\"deepseek-flash\",\"label\":\"DeepSeek Flash\",\"description\":\"DeepSeek-V4.1-Flash · Context: ${context_label} · Fast & Efficient\",\"behavesAs\":\"claude-3-5-sonnet-20241022\"}],\"replaceBuiltInOptions\":true}}"
 
     # 8. Print informative startup banner
     echo "========================================================================"
@@ -345,7 +330,17 @@ EOF
         system_prompt_args=(--system-prompt-file "$prompt_file")
     fi
 
-    claude --bare \
+    # Resolve underlying Claude Code binary to avoid wrapper loops
+    local real_claude=""
+    if [ -d "$HOME/.local/share/claude/versions" ]; then
+        real_claude=$(ls -d "$HOME/.local/share/claude/versions/"* 2>/dev/null | sort -V | tail -n 1)
+    fi
+    if [ -z "$real_claude" ] || [ ! -x "$real_claude" ]; then
+        real_claude=$(which claude 2>/dev/null)
+    fi
+    [ -z "$real_claude" ] && real_claude="claude"
+
+    "$real_claude" --bare \
            --settings "$settings_file" \
            --managed-settings "$managed_settings" \
            --model "$selected_model" \
